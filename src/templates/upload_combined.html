@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Files</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #6b48ff, #00d2ff);
+            animation: gradientShift 10s ease infinite;
+        }
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .form-container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 25px;
+            font-size: 28px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        h3 {
+            color: #444;
+            margin-bottom: 10px;
+            font-size: 18px;
+            font-weight: 500;
+        }
+        .messages {
+            list-style: none;
+            padding: 15px;
+            margin-bottom: 20px;
+            background: #e6ffe6;
+            border-left: 5px solid #28a745;
+            border-radius: 5px;
+            color: #155724;
+            font-size: 15px;
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .messages li {
+            margin: 5px 0;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .file-input-wrapper {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .file-input-label {
+            display: inline-block;
+            padding: 12px 25px;
+            background-color: #007bff;
+            color: white;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform 0.3s ease, background-color 0.3s ease;
+        }
+        .file-input-label:hover {
+            background-color: #0056b3;
+            transform: scale(1.05);
+        }
+        input[type="submit"] {
+            padding: 12px 30px;
+            background: linear-gradient(45deg, #007bff, #00d2ff);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0, 123, 255, 0.4);
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        input[type="submit"]:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(0, 123, 255, 0.6);
+            background: linear-gradient(45deg, #0056b3, #00aaff);
+        }
+        input[type="submit"]:active {
+            transform: translateY(0);
+            box-shadow: 0 3px 10px rgba(0, 123, 255, 0.4);
+        }
+        @media (max-width: 600px) {
+            .form-container {
+                padding: 20px;
+                margin: 10px;
+            }
+            h1 {
+                font-size: 22px;
+            }
+            h3 {
+                font-size: 16px;
+            }
+            .file-input-label {
+                padding: 10px 20px;
+                font-size: 14px;
+            }
+            input[type="submit"] {
+                padding: 10px 25px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>Upload HTML Form and CSV/Excel Data</h1>
+
+        {% if messages %}
+            <ul class="messages">
+                {% for message in messages %}
+                    <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <form method="POST" enctype="multipart/form-data">
+            <div class="file-input-wrapper">
+                <h3>Upload HTML Form:</h3>
+                <input type="file" id="html_file_input" name="html_file">
+                <label for="html_file_input" class="file-input-label">Choose HTML File</label>
+            </div>
+
+            <div class="file-input-wrapper">
+                <h3>Upload CSV/Excel Data:</h3>
+                <input type="file" id="data_file_input" name="data_file">
+                <label for="data_file_input" class="file-input-label">Choose Data File</label>
+            </div>
+
+            <input type="submit" value="Upload Files">
+        </form>
+    </div>
+</body>
+</html>
