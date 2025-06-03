@@ -21,7 +21,8 @@ def run_selenium_automation(csv_path, field_mapping=None):
     chrome_options.add_argument("--headless")  # Run in headless mode
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+    chrome_options.binary_location = "/usr/bin/google-chrome"  # Explicitly set Chrome binary path on Render
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=chrome_options)
     results = []
 
     try:
