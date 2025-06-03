@@ -7,15 +7,18 @@ from main import run_selenium_automation
 from openai import AzureOpenAI
 from dotenv import load_dotenv
 import json
+import subprocess
+import logging
 
-# Load environment variables from .env file
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
 load_dotenv()
-print("Environment Variables Loaded:")
-print(f"OPENAI_ENDPOINT: {os.getenv('OPENAI_ENDPOINT')}")
-print(f"OPENAI_KEY: {os.getenv('OPENAI_KEY')}")
-print(f"OPENAI_DEPLOYMENT_NAME: {os.getenv('OPENAI_DEPLOYMENT_NAME')}")
+logger.debug("Environment Variables Loaded:")
+logger.debug(f"OPENAI_ENDPOINT: {os.getenv('OPENAI_ENDPOINT')}")
+logger.debug(f"OPENAI_KEY: {os.getenv('OPENAI_KEY')}")
+logger.debug(f"OPENAI_DEPLOYMENT_NAME: {os.getenv('OPENAI_DEPLOYMENT_NAME')}")
 
-# Configs
 UPLOAD_FOLDER = 'Uploads'
 ALLOWED_HTML = {'html'}
 ALLOWED_DATA = {'csv', 'xlsx'}
@@ -24,23 +27,57 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Initialize Azure OpenAI client
 try:
     client = AzureOpenAI(
         azure_endpoint=os.getenv("OPENAI_ENDPOINT"),
         api_key=os.getenv("OPENAI_KEY"),
-        api_version="2023-05-15",  # Use an appropriate API version for Azure OpenAI
+        api_version="2023-05-15",
         azure_deployment=os.getenv("OPENAI_DEPLOYMENT_NAME")
     )
-    print("Azure OpenAI Client Initialized Successfully")
+    logger.debug("Azure OpenAI Client Initialized Successfully")
 except Exception as e:
-    print(f"Failed to Initialize Azure OpenAI Client: {e}")
+    logger.error(f"Failed to Initialize Azure OpenAI Client: {e}")
+
+def ensure_chrome_installed():
+    chrome_path = "/tmp/chrome/chrome"
+    chromedriver_path = "/tmp/chromedriver/chromedriver"
+    if os.path.exists(chrome_path) and os.path.exists(chromedriver_path):
+        logger.debug("Chrome and ChromeDriver already installed")
+        return
+
+    logger.debug("Installing Chrome and ChromeDriver at runtime...")
+    try:
+        # Create directories
+        os.makedirs("/tmp/chrome-install", exist_ok=True)
+        os.makedirs("/tmp/chrome", exist_ok=True)
+        os.makedirs("/tmp/chromedriver", exist_ok=True)
+
+        # Download and extract Chrome
+        subprocess.run(["wget", "-q", "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb", "-O", "/tmp/chrome-install/chrome.deb"], check=True)
+        subprocess.run(["ar", "x", "/tmp/chrome-install/chrome.deb"], cwd="/tmp/chrome-install", check=True)
+        if os.path.exists("/tmp/chrome-install/data.tar.xz"):
+            subprocess.run(["tar", "-xJf", "data.tar.xz", "-C", "/tmp/chrome-install"], cwd="/tmp/chrome-install", check=True)
+        elif os.path.exists("/tmp/chrome-install/data.tar.gz"):
+            subprocess.run(["tar", "-xzf", "data.tar.gz", "-C", "/tmp/chrome-install"], cwd="/tmp/chrome-install", check=True)
+        subprocess.run(["cp", "-r", "/tmp/chrome-install/opt/google/chrome/*", "/tmp/chrome/"], check=True)
+        logger.debug(f"Chrome installed at: {os.listdir('/tmp/chrome/')}")
+
+        # Download and extract ChromeDriver
+        subprocess.run(["wget", "-q", "https://chromedriver.storage.googleapis.com/127.0.6533.88/chromedriver_linux64.zip", "-O", "/tmp/chromedriver/chromedriver.zip"], check=True)
+        subprocess.run(["unzip", "chromedriver.zip", "-d", "/tmp/chromedriver"], cwd="/tmp/chromedriver", check=True)
+        if os.path.exists("/tmp/chromedriver/chromedriver-linux64/chromedriver"):
+            subprocess.run(["mv", "/tmp/chromedriver/chromedriver-linux64/chromedriver", "/tmp/chromedriver/chromedriver"], check=True)
+            subprocess.run(["rm", "-rf", "/tmp/chromedriver/chromedriver-linux64"], check=True)
+        subprocess.run(["chmod", "+x", "/tmp/chromedriver/chromedriver"], check=True)
+        logger.debug(f"ChromeDriver installed at: {os.listdir('/tmp/chromedriver/')}")
+    except Exception as e:
+        logger.error(f"Failed to install Chrome/ChromeDriver at runtime: {str(e)}")
+        raise
 
 def allowed_file(filename, allowed_exts):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_exts
 
 def get_openai_field_mapping(html_fields, csv_headers):
-    """Use Azure OpenAI to map CSV headers to HTML form fields."""
     prompt = f"""
     Given the following HTML form fields and CSV headers, map each HTML field to the most likely corresponding CSV header. 
     Return the mapping as a JSON object where keys are HTML fields and values are CSV headers.
@@ -56,17 +93,15 @@ def get_openai_field_mapping(html_fields, csv_headers):
     """
     try:
         response = client.chat.completions.create(
-            model=os.getenv("OPENAI_DEPLOYMENT_NAME"),  # Deployment name for Azure OpenAI
+            model=os.getenv("OPENAI_DEPLOYMENT_NAME"),
             messages=[{"role": "user", "content": prompt}],
             max_tokens=200,
             temperature=0.2
         )
         mapping_str = response.choices[0].message.content.strip()
-        print(f"Raw OpenAI Mapping Response: {mapping_str}")
-        # Parse the response (assuming OpenAI returns a JSON-like string)
+        logger.debug(f"Raw OpenAI Mapping Response: {mapping_str}")
         mapping = json.loads(mapping_str)
     except json.JSONDecodeError:
-        # Fallback to a simple key-value mapping if JSON parsing fails
         mapping = {}
         lines = mapping_str.split('\n')
         for line in lines:
@@ -104,68 +139,33 @@ def upload_files():
 
     return render_template('upload_combined.html')
 
-# @app.route('/process_form')
-# def process_form():
-#     try:
-#         html_path = os.path.join(app.config['UPLOAD_FOLDER'], 'form.html')
-#         csv_path = os.path.join(app.config['UPLOAD_FOLDER'], 'data.csv')
-
-#         html_fields = extract_form_fields(html_path)
-#         csv_headers = get_csv_headers(csv_path)
-
-#         print(f"HTML Fields: {html_fields}")
-#         print(f"CSV Headers: {csv_headers}")
-
-#         # Use Azure OpenAI to get field mapping
-#         mapping = get_openai_field_mapping(html_fields, csv_headers)
-#         print(f"OpenAI Mapping: {mapping}")
-
-#         # Validate mapping
-#         missing_fields = [field for field in html_fields if field not in mapping or mapping[field] is None or mapping[field] not in csv_headers]
-#         print(f"Missing Fields: {missing_fields}")
-
-#         if missing_fields:
-#             return render_template('error.html', 
-#                                  error=f"CSV is missing required fields: {', '.join(missing_fields)}")
-
-#         # Proceed with automation using the mapped headers
-#         results = run_selenium_automation(csv_path, mapping)
-
-#         return render_template('process_form.html', 
-#                              html_fields=html_fields, 
-#                              csv_headers=csv_headers,
-#                              results=results)
-#     except Exception as e:
-#         return render_template('error.html', error=str(e))
-# C:\Users\Hp\Desktop\seleinum_code\src\app.py
 @app.route('/process_form')
 def process_form():
     try:
+        # Ensure Chrome is installed before running automation
+        ensure_chrome_installed()
+
         html_path = os.path.join(app.config['UPLOAD_FOLDER'], 'form.html')
         csv_path = os.path.join(app.config['UPLOAD_FOLDER'], 'data.csv')
 
         html_fields = extract_form_fields(html_path)
         csv_headers = get_csv_headers(csv_path)
 
-        print(f"HTML Fields: {html_fields}")
-        print(f"CSV Headers: {csv_headers}")
+        logger.debug(f"HTML Fields: {html_fields}")
+        logger.debug(f"CSV Headers: {csv_headers}")
 
-        # Use Azure OpenAI to get field mapping
         mapping = get_openai_field_mapping(html_fields, csv_headers)
-        print(f"OpenAI Mapping: {mapping}")
+        logger.debug(f"OpenAI Mapping: {mapping}")
 
-        # Validate mapping
         missing_fields = [field for field in html_fields if field not in mapping or mapping[field] is None or mapping[field] not in csv_headers]
-        print(f"Missing Fields: {missing_fields}")
+        logger.debug(f"Missing Fields: {missing_fields}")
 
         if missing_fields:
             return render_template('error.html', 
                                  error=f"CSV is missing required fields: {', '.join(missing_fields)}")
 
-        # Proceed with automation using the mapped headers
         results = run_selenium_automation(csv_path, mapping)
 
-        # Calculate automation stats
         total_rows = len(results)
         success_rows = len([r for r in results if r.status.lower() == 'success'])
         success_rate = (success_rows / total_rows * 100) if total_rows > 0 else 0
@@ -181,6 +181,7 @@ def process_form():
                              avg_processing_time=avg_processing_time)
     except Exception as e:
         return render_template('error.html', error=str(e))
+
 if __name__ == '__main__':
-    print("Starting Flask App...")
+    logger.debug("Starting Flask App...")
     app.run(debug=True)
