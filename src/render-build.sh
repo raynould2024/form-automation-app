@@ -2,11 +2,11 @@
 echo "=== Starting render-build.sh execution ==="
 echo "Installing Chrome and ChromeDriver manually..."
 
-# Create a writable temp directory
+# Use /tmp as the base directory (writable)
 mkdir -p /tmp/chrome-install
 cd /tmp/chrome-install
 
-# Download Chrome .deb package
+# Download and extract Chrome
 echo "Downloading Chrome..."
 wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O chrome.deb || {
     echo "Failed to download Chrome. Using fallback URL..."
@@ -15,19 +15,25 @@ wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.de
         exit 1
     }
 }
-
-# Extract .deb package using ar (doesn't require filesystem writes)
-echo "Extracting Chrome .deb package..."
+echo "Extracting Chrome..."
 ar x chrome.deb
-tar -xzf data.tar.gz -C /tmp/chrome-install
-mkdir -p /opt/chrome
-cp -r /tmp/chrome-install/opt/google/chrome/* /opt/chrome/ || {
+# Check for data.tar.* (handle different compression formats)
+if [ -f data.tar.xz ]; then
+    tar -xJf data.tar.xz -C /tmp/chrome-install
+elif [ -f data.tar.gz ]; then
+    tar -xzf data.tar.gz -C /tmp/chrome-install
+else
+    echo "No valid data.tar.* file found in .deb package. Exiting..."
+    exit 1
+fi
+mkdir -p /tmp/chrome
+cp -r /tmp/chrome-install/opt/google/chrome/* /tmp/chrome/ || {
     echo "Failed to copy Chrome files. Exiting..."
     exit 1
 }
-echo "Chrome installed at: $(ls -l /opt/chrome/)"
+echo "Chrome installed at: $(ls -l /tmp/chrome/)"
 
-# Download ChromeDriver
+# Download and install ChromeDriver
 echo "Downloading ChromeDriver..."
 wget -q https://chromedriver.storage.googleapis.com/127.0.6533.88/chromedriver_linux64.zip -O chromedriver.zip || {
     echo "Failed to download ChromeDriver. Using fallback URL..."
@@ -36,15 +42,15 @@ wget -q https://chromedriver.storage.googleapis.com/127.0.6533.88/chromedriver_l
         exit 1
     }
 }
-
-# Extract ChromeDriver
 echo "Extracting ChromeDriver..."
-unzip chromedriver.zip -d /usr/local/bin/ || {
+unzip chromedriver.zip -d /tmp/chromedriver || {
     echo "Failed to unzip ChromeDriver. Exiting..."
     exit 1
 }
-chmod +x /usr/local/bin/chromedriver || {
-    echo "Failed to set permissions for ChromeDriver. Exiting..."
+chmod +x /tmp/chromedriver/chromedriver
+# Create a symlink to a standard location (writable via symlink)
+ln -sf /tmp/chromedriver/chromedriver /usr/local/bin/chromedriver || {
+    echo "Failed to create symlink for ChromeDriver. Exiting..."
     exit 1
 }
 echo "ChromeDriver installed at: $(ls -l /usr/local/bin/chromedriver)"
