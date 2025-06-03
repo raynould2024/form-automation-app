@@ -3,6 +3,8 @@ from form_filler import fill_form
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+# from webdriver_manager.chrome import ChromeDriverManager
+
 from selenium.common.exceptions import NoSuchElementException
 import pandas as pd
 from dataclasses import dataclass
@@ -20,7 +22,9 @@ class AutomationResult:
     message: str
     processing_time: float
 
-def run_selenium_automation(csv_path, field_mapping=None):
+def run_selenium_automation(csv_path, field_mapping=None, webpage_url=None):
+    if not webpage_url or not webpage_url.startswith(('http://', 'https://')):
+        raise ValueError("A valid webpage URL is required (must start with http:// or https://).")
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
@@ -58,14 +62,18 @@ def run_selenium_automation(csv_path, field_mapping=None):
     except Exception as e:
         logger.error(f"Failed to initialize Chrome driver: {str(e)}")
         raise
-
+    
+    
+    
+    # driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
     results = []
     try:
         df = pd.read_csv(csv_path)
         for index, row in df.iterrows():
             start_time = time.time()
             try:
-                driver.get("https://regi-form-9644bcddc60b.herokuapp.com/")
+                driver.get(webpage_url)  # Use the dynamically passed webpage_url
+                # driver.get("https://regi-form-9644bcddc60b.herokuapp.com/")
                 row_data = row.to_dict()
                 if field_mapping is None:
                     field_mapping = {
@@ -102,6 +110,6 @@ if __name__ == '__main__':
         'home_phone': 'Home Phone',
         'work_phone': 'Work Phone'
     }
-    results = run_selenium_automation("Uploads/data.csv", dummy_mapping)
+    results = run_selenium_automation("Uploads/data.csv", dummy_mapping, webpage_url="https://regi-form-9644bcddc60b.herokuapp.com/")
     for result in results:
         print(result)

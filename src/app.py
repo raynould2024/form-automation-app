@@ -1,4 +1,3 @@
-# C:\Users\Hp\Desktop\seleinum_code\src\app.py
 from flask import Flask, render_template, request, redirect, url_for
 import os
 from werkzeug.utils import secure_filename
@@ -173,6 +172,7 @@ def index():
 def upload_files():
     html_uploaded = False
     data_uploaded = False
+    webpage_url = None
 
     if request.method == 'POST':
         if 'html_file' in request.files:
@@ -187,8 +187,13 @@ def upload_files():
                 data_file.save(os.path.join(app.config['UPLOAD_FOLDER'], 'data.csv'))
                 data_uploaded = True
 
-        if html_uploaded and data_uploaded:
-            return redirect(url_for('process_form'))
+        webpage_url = request.form.get('webpage_url')
+        if not webpage_url:
+            messages = ["Please enter a valid webpage URL."]
+            return render_template('upload_combined.html', messages=messages)
+
+        if html_uploaded and data_uploaded and webpage_url:
+            return redirect(url_for('process_form', webpage_url=webpage_url))
 
     return render_template('upload_combined.html')
 
@@ -199,6 +204,10 @@ def process_form():
 
         html_path = os.path.join(app.config['UPLOAD_FOLDER'], 'form.html')
         csv_path = os.path.join(app.config['UPLOAD_FOLDER'], 'data.csv')
+        webpage_url = request.args.get('webpage_url')
+
+        if not webpage_url or not webpage_url.startswith(('http://', 'https://')):
+            return render_template('error.html', error="Invalid or missing webpage URL.")
 
         html_fields = extract_form_fields(html_path)
         csv_headers = get_csv_headers(csv_path)
@@ -216,7 +225,7 @@ def process_form():
             return render_template('error.html', 
                                  error=f"CSV is missing required fields: {', '.join(missing_fields)}")
 
-        results = run_selenium_automation(csv_path, mapping)
+        results = run_selenium_automation(csv_path, mapping, webpage_url)
 
         total_rows = len(results)
         success_rows = len([r for r in results if r.status.lower() == 'success'])
