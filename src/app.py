@@ -2,8 +2,8 @@
 from flask import Flask, render_template, request, redirect, url_for
 import os
 from werkzeug.utils import secure_filename
-from src.process_csv import get_first_row_data, extract_form_fields, get_csv_headers
-from src.main import run_selenium_automation
+from process_csv import get_first_row_data, extract_form_fields, get_csv_headers
+from main import run_selenium_automation
 from openai import AzureOpenAI
 from dotenv import load_dotenv
 import json
