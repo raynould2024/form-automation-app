@@ -21,16 +21,24 @@ class AutomationResult:
     processing_time: float
 
 def run_selenium_automation(csv_path, field_mapping=None):
+    # Debug: List contents of /tmp/chrome/ and /tmp/chromedriver/
+    chrome_dir = "/tmp/chrome/"
+    chromedriver_dir = "/tmp/chromedriver/"
+    if os.path.exists(chrome_dir):
+        logger.debug(f"Contents of {chrome_dir}: {os.listdir(chrome_dir)}")
+    else:
+        logger.error(f"{chrome_dir} does not exist at runtime")
+    if os.path.exists(chromedriver_dir):
+        logger.debug(f"Contents of {chromedriver_dir}: {os.listdir(chromedriver_dir)}")
+    else:
+        logger.error(f"{chromedriver_dir} does not exist at runtime")
+
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
 
-    # Try multiple Chrome binary paths
-    possible_chrome_paths = [
-        "/tmp/chrome/google-chrome",
-        "/tmp/chrome/chrome"
-    ]
+    possible_chrome_paths = ["/tmp/chrome/google-chrome", "/tmp/chrome/chrome"]
     chrome_binary = None
     for path in possible_chrome_paths:
         logger.debug(f"Checking Chrome binary at: {path}")
