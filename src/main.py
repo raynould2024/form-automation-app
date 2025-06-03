@@ -65,7 +65,7 @@ def run_selenium_automation(csv_path, field_mapping=None):
         for index, row in df.iterrows():
             start_time = time.time()
             try:
-                driver.get("https://form-automation-app.onrender.com")
+                driver.get("https://regi-form-9644bcddc60b.herokuapp.com/")
                 row_data = row.to_dict()
                 if field_mapping is None:
                     field_mapping = {
