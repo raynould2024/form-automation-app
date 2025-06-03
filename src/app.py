@@ -91,9 +91,28 @@ def ensure_chrome_installed():
                 shutil.copy2(src_path, dst_path)
         logger.debug(f"Chrome installed at: {os.listdir('/tmp/chrome/')}")
 
+        # Ensure Chrome binary is executable
+        subprocess.run(["chmod", "+x", "/tmp/chrome/chrome"], check=True)
+
+        # Get Chrome version
+        chrome_version_cmd = subprocess.run(["/tmp/chrome/chrome", "--version"], capture_output=True, text=True)
+        chrome_version = chrome_version_cmd.stdout.strip().split()[-1]
+        logger.debug(f"Chrome version: {chrome_version}")
+        # Extract major version (e.g., 127 from 127.0.6533.88)
+        chrome_major_version = chrome_version.split('.')[0]
+
         # Download and extract ChromeDriver
         logger.debug("Downloading ChromeDriver...")
-        subprocess.run(["wget", "-q", "https://chromedriver.storage.googleapis.com/127.0.6533.88/chromedriver_linux64.zip", "-O", "/tmp/chromedriver/chromedriver.zip"], check=True)
+        # Use the fallback URL and dynamically adjust the version
+        chromedriver_url = f"https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/{chrome_version}/linux64/chromedriver-linux64.zip"
+        try:
+            subprocess.run(["wget", "-q", chromedriver_url, "-O", "/tmp/chromedriver/chromedriver.zip"], check=True)
+        except subprocess.CalledProcessError:
+            # Fallback to major version if exact version fails
+            logger.debug(f"Exact ChromeDriver version {chrome_version} not found, trying major version {chrome_major_version}")
+            chromedriver_url = f"https://chromedriver.storage.googleapis.com/{chrome_major_version}.0.0.0/chromedriver_linux64.zip"
+            subprocess.run(["wget", "-q", chromedriver_url, "-O", "/tmp/chromedriver/chromedriver.zip"], check=True)
+
         logger.debug("Extracting ChromeDriver...")
         subprocess.run(["unzip", "chromedriver.zip", "-d", "/tmp/chromedriver"], cwd="/tmp/chromedriver", check=True)
         if os.path.exists("/tmp/chromedriver/chromedriver-linux64/chromedriver"):
