@@ -10,6 +10,7 @@ import json
 import subprocess
 import logging
 import glob
+import shutil
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -78,7 +79,16 @@ def ensure_chrome_installed():
         if not chrome_dir:
             raise Exception("Chrome binary not found in extracted files")
         logger.debug(f"Found Chrome directory: {chrome_dir}")
-        subprocess.run(["cp", "-r", os.path.join(chrome_dir, "*"), "/tmp/chrome/"], check=True)
+        logger.debug(f"Contents of Chrome directory: {os.listdir(chrome_dir)}")
+
+        # Copy all files from chrome_dir to /tmp/chrome/
+        for item in os.listdir(chrome_dir):
+            src_path = os.path.join(chrome_dir, item)
+            dst_path = os.path.join("/tmp/chrome/", item)
+            if os.path.isdir(src_path):
+                shutil.copytree(src_path, dst_path, dirs_exist_ok=True)
+            else:
+                shutil.copy2(src_path, dst_path)
         logger.debug(f"Chrome installed at: {os.listdir('/tmp/chrome/')}")
 
         # Download and extract ChromeDriver
