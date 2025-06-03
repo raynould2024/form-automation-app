@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import json
 import subprocess
 import logging
+import glob
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -53,25 +54,48 @@ def ensure_chrome_installed():
         os.makedirs("/tmp/chromedriver", exist_ok=True)
 
         # Download and extract Chrome
+        logger.debug("Downloading Chrome .deb package...")
         subprocess.run(["wget", "-q", "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb", "-O", "/tmp/chrome-install/chrome.deb"], check=True)
+        logger.debug("Extracting Chrome .deb package...")
         subprocess.run(["ar", "x", "/tmp/chrome-install/chrome.deb"], cwd="/tmp/chrome-install", check=True)
-        if os.path.exists("/tmp/chrome-install/data.tar.xz"):
-            subprocess.run(["tar", "-xJf", "data.tar.xz", "-C", "/tmp/chrome-install"], cwd="/tmp/chrome-install", check=True)
-        elif os.path.exists("/tmp/chrome-install/data.tar.gz"):
-            subprocess.run(["tar", "-xzf", "data.tar.gz", "-C", "/tmp/chrome-install"], cwd="/tmp/chrome-install", check=True)
-        subprocess.run(["cp", "-r", "/tmp/chrome-install/opt/google/chrome/*", "/tmp/chrome/"], check=True)
+        tar_file = None
+        for f in ["data.tar.xz", "data.tar.gz"]:
+            if os.path.exists(os.path.join("/tmp/chrome-install", f)):
+                tar_file = f
+                break
+        if not tar_file:
+            raise Exception("No data.tar.xz or data.tar.gz found in .deb package")
+        logger.debug(f"Extracting {tar_file}...")
+        subprocess.run(["tar", "-xJf" if tar_file.endswith(".xz") else "-xzf", tar_file, "-C", "/tmp/chrome-install"], cwd="/tmp/chrome-install", check=True)
+        logger.debug(f"Contents of /tmp/chrome-install/ after extraction: {os.listdir('/tmp/chrome-install')}")
+
+        # Find the Chrome directory dynamically
+        chrome_dir = None
+        for root, dirs, files in os.walk("/tmp/chrome-install"):
+            if "chrome" in files:
+                chrome_dir = root
+                break
+        if not chrome_dir:
+            raise Exception("Chrome binary not found in extracted files")
+        logger.debug(f"Found Chrome directory: {chrome_dir}")
+        subprocess.run(["cp", "-r", os.path.join(chrome_dir, "*"), "/tmp/chrome/"], check=True)
         logger.debug(f"Chrome installed at: {os.listdir('/tmp/chrome/')}")
 
         # Download and extract ChromeDriver
+        logger.debug("Downloading ChromeDriver...")
         subprocess.run(["wget", "-q", "https://chromedriver.storage.googleapis.com/127.0.6533.88/chromedriver_linux64.zip", "-O", "/tmp/chromedriver/chromedriver.zip"], check=True)
+        logger.debug("Extracting ChromeDriver...")
         subprocess.run(["unzip", "chromedriver.zip", "-d", "/tmp/chromedriver"], cwd="/tmp/chromedriver", check=True)
         if os.path.exists("/tmp/chromedriver/chromedriver-linux64/chromedriver"):
             subprocess.run(["mv", "/tmp/chromedriver/chromedriver-linux64/chromedriver", "/tmp/chromedriver/chromedriver"], check=True)
             subprocess.run(["rm", "-rf", "/tmp/chromedriver/chromedriver-linux64"], check=True)
         subprocess.run(["chmod", "+x", "/tmp/chromedriver/chromedriver"], check=True)
         logger.debug(f"ChromeDriver installed at: {os.listdir('/tmp/chromedriver/')}")
-    except Exception as e:
+    except subprocess.CalledProcessError as e:
         logger.error(f"Failed to install Chrome/ChromeDriver at runtime: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Installation error: {str(e)}")
         raise
 
 def allowed_file(filename, allowed_exts):
@@ -142,7 +166,6 @@ def upload_files():
 @app.route('/process_form')
 def process_form():
     try:
-        # Ensure Chrome is installed before running automation
         ensure_chrome_installed()
 
         html_path = os.path.join(app.config['UPLOAD_FOLDER'], 'form.html')
