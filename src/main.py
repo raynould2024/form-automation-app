@@ -2,13 +2,12 @@
 from form_filler import fill_form
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import NoSuchElementException
 import pandas as pd
 from dataclasses import dataclass
 import time
-import os
-
 @dataclass
 class AutomationResult:
     row: int
