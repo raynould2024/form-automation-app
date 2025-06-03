@@ -17,7 +17,6 @@ wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.de
 }
 echo "Extracting Chrome..."
 ar x chrome.deb
-# Check for data.tar.* (handle different compression formats)
 if [ -f data.tar.xz ]; then
     tar -xJf data.tar.xz -C /tmp/chrome-install
 elif [ -f data.tar.gz ]; then
@@ -43,16 +42,20 @@ wget -q https://chromedriver.storage.googleapis.com/127.0.6533.88/chromedriver_l
     }
 }
 echo "Extracting ChromeDriver..."
+mkdir -p /tmp/chromedriver
 unzip chromedriver.zip -d /tmp/chromedriver || {
     echo "Failed to unzip ChromeDriver. Exiting..."
     exit 1
 }
-chmod +x /tmp/chromedriver/chromedriver
-# Create a symlink to a standard location (writable via symlink)
-ln -sf /tmp/chromedriver/chromedriver /usr/local/bin/chromedriver || {
-    echo "Failed to create symlink for ChromeDriver. Exiting..."
+# Handle the chromedriver-linux64 subdirectory from fallback URL
+if [ -f /tmp/chromedriver/chromedriver-linux64/chromedriver ]; then
+    mv /tmp/chromedriver/chromedriver-linux64/chromedriver /tmp/chromedriver/chromedriver
+    rm -rf /tmp/chromedriver/chromedriver-linux64
+fi
+chmod +x /tmp/chromedriver/chromedriver || {
+    echo "Failed to set permissions for ChromeDriver. Exiting..."
     exit 1
 }
-echo "ChromeDriver installed at: $(ls -l /usr/local/bin/chromedriver)"
+echo "ChromeDriver installed at: $(ls -l /tmp/chromedriver/chromedriver)"
 
 echo "=== Completed render-build.sh execution ==="
