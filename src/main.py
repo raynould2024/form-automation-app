@@ -8,10 +8,6 @@ from selenium.common.exceptions import NoSuchElementException
 import pandas as pd
 from dataclasses import dataclass
 import time
-import logging
-
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 @dataclass
 class AutomationResult:
@@ -25,14 +21,7 @@ def run_selenium_automation(csv_path, field_mapping=None):
     chrome_options.add_argument("--headless")  # Run in headless mode
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_binary = "/usr/bin/google-chrome"
-    chrome_options.binary_location = chrome_binary  # Explicitly set Chrome binary path on Render
-    logger.debug(f"Chrome binary set to: {chrome_binary}")
-    if os.path.exists(chrome_binary):
-        logger.debug("Chrome binary exists")
-    else:
-        logger.error("Chrome binary does not exist at specified path")
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=chrome_options)
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
     results = []
 
     try:
