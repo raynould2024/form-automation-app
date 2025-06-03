@@ -2,12 +2,17 @@
 from form_filler import fill_form
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import NoSuchElementException
 import pandas as pd
 from dataclasses import dataclass
 import time
+import os
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
 @dataclass
 class AutomationResult:
     row: int
@@ -20,20 +25,48 @@ def run_selenium_automation(csv_path, field_mapping=None):
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
-    results = []
 
+    # Try multiple Chrome binary paths
+    possible_chrome_paths = [
+        "/tmp/chrome/google-chrome",
+        "/tmp/chrome/chrome"
+    ]
+    chrome_binary = None
+    for path in possible_chrome_paths:
+        logger.debug(f"Checking Chrome binary at: {path}")
+        if os.path.exists(path):
+            chrome_binary = path
+            break
+
+    if not chrome_binary:
+        logger.error("No Chrome binary found in possible paths")
+        raise FileNotFoundError(f"No Chrome binary found in {possible_chrome_paths}")
+
+    logger.debug(f"Using Chrome binary: {chrome_binary}")
+    chrome_options.binary_location = chrome_binary
+
+    chromedriver_path = "/tmp/chromedriver/chromedriver"
+    logger.debug(f"Checking ChromeDriver at: {chromedriver_path}")
+    if not os.path.exists(chromedriver_path):
+        logger.error("ChromeDriver not found")
+        raise FileNotFoundError(f"ChromeDriver not found at {chromedriver_path}")
+
+    service = Service(executable_path=chromedriver_path)
+    try:
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+        logger.debug("Chrome driver initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize Chrome driver: {str(e)}")
+        raise
+
+    results = []
     try:
         df = pd.read_csv(csv_path)
         for index, row in df.iterrows():
-            start_time = time.time()  # Start timer
+            start_time = time.time()
             try:
-                # driver.get("https://formautomationcomp-559875f1aa42.herokuapp.com/")
-                # driver.get("https://event-form--test-c038faf429db.herokuapp.com/")
-                driver.get("https://regi-form-9644bcddc60b.herokuapp.com/")
-                # Convert row to dict for dynamic access
+                driver.get("https://form-automation-app.onrender.com")
                 row_data = row.to_dict()
-                # Use dummy mapping if none provided (for standalone testing)
                 if field_mapping is None:
                     field_mapping = {
                         'first_name': 'First Name',
@@ -46,22 +79,19 @@ def run_selenium_automation(csv_path, field_mapping=None):
                         'work_phone': 'Work Phone'
                     }
                 fill_form(driver, field_mapping, row_data)
-                # Extract name for success message (if available)
-                # first_name = row_data.get(field_mapping.get('first_name', ''), 'Unknown')
-                # last_name = row_data.get(field_mapping.get('last_name', ''), '')
-                # results.append(AutomationResult(index + 1, "Success", f"Form filled for {first_name} {last_name}".strip()))
-                end_time = time.time()  # End timer
+                end_time = time.time()
                 processing_time = end_time - start_time
-                results.append(AutomationResult(index + 1, "Success", f"Form filled for Done".strip(),processing_time=processing_time))
+                results.append(AutomationResult(index + 1, "Success", f"Form filled for Done", processing_time))
             except Exception as e:
-                results.append(AutomationResult(index + 1, "Failure", str(e)))
+                end_time = time.time()
+                processing_time = end_time - start_time
+                results.append(AutomationResult(index + 1, "Failure", str(e), processing_time))
     finally:
         driver.quit()
 
     return results
 
 if __name__ == '__main__':
-    # For testing, provide a dummy mapping
     dummy_mapping = {
         'first_name': 'First Name',
         'last_name': 'Last Name',
